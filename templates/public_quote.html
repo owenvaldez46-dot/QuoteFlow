@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presupuesto para {{ quote.client_name }}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container" style="max-width: 650px; margin-top: 40px;">
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 16px; margin-bottom: 20px;">
+                <div>
+                    <h2>{{ creator.company_name or 'Presupuesto Profesional' }}</h2>
+                    <p style="color: #64748b; margin: 0;">{{ creator.company_phone }} | {{ creator.company_address }}</p>
+                </div>
+                {% if creator.company_logo %}
+                <img src="{{ creator.company_logo }}" alt="Logo" style="max-height: 50px;">
+                {% endif %}
+            </div>
+
+            <h2>Presupuesto #{{ "%03d"|format(quote.id) }}</h2>
+            <p><strong>Preparado para:</strong> {{ quote.client_name }}</p>
+
+            <div style="background: #f8fafc; padding: 16px; border-radius: 8px; margin: 20px 0;">
+                <h3>{{ quote.service_title }}</h3>
+                <p>{{ quote.description or 'Sin detalles adicionles.' }}</p>
+                <h2 style="color: #2563eb; margin-top: 12px;">Total: ${{ "%.2f"|format(quote.total_amount) }}</h2>
+            </div>
+
+            <p>Estado del Presupuesto: <strong>{{ quote.status }}</strong></p>
+
+            {% if quote.status == 'Pendiente' %}
+            <div style="display: flex; gap: 12px; margin-top: 24px;">
+                <form action="/q/{{ quote.public_token }}/respond" method="POST" style="flex: 1;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="action" value="approve">
+                    <button type="submit" class="btn btn-primary" style="width: 100%; background: #16a34a;">
+                        ✓ Aprobar Presupuesto
+                    </button>
+                </form>
+                <form action="/q/{{ quote.public_token }}/respond" method="POST" style="flex: 1;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="action" value="reject">
+                    <button type="submit" class="btn btn-outline" style="width: 100%; color: #dc2626; border-color: #dc2626;">
+                        ✕ Rechazar
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

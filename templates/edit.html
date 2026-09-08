@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Editar Cotización #{{ "%03d"|format(quote.id) }} | QuoteFlow</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container" style="max-width: 650px;">
+        <header class="header">
+            <div>
+                <h1>✏️ Editar Cotización #{{ "%03d"|format(quote.id) }}</h1>
+            </div>
+            <a href="/quote/{{ quote.id }}" class="btn btn-secondary">Cancelar</a>
+        </header>
+
+        {% if error %}
+        <p style="color: #ef4444; background: #fef2f2; padding: 10px; border-radius: 6px;">{{ error }}</p>
+        {% endif %}
+
+        <div class="card">
+            <form action="/quote/{{ quote.id }}/edit" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <h3>Datos del Cliente</h3>
+                <div class="form-group">
+                    <label>Cliente:</label>
+                    <input type="text" name="client_name" value="{{ quote.client_name }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Email Cliente:</label>
+                    <input type="email" name="client_email" value="{{ quote.client_email or '' }}">
+                </div>
+
+                <h3>Detalles</h3>
+                <div class="form-group">
+                    <label>Servicio:</label>
+                    <input type="text" name="service_title" value="{{ quote.service_title }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Descripción:</label>
+                    <textarea name="description" rows="3">{{ quote.description or '' }}</textarea>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label>Monto Base ($):</label>
+                        <input type="number" step="0.01" min="0.01" name="amount" value="{{ quote.amount }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Impuesto (%):</label>
+                        <input type="number" step="0.1" min="0" max="100" name="tax_rate" value="{{ quote.tax_rate }}">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 12px;">Guardar Cambios</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Cotización #{{ "%03d"|format(quote.id) }} | QuoteFlow</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container" style="max-width: 700px;">
+        <header class="header">
+            <div>
+                <h1>Cotización #{{ "%03d"|format(quote.id) }}</h1>
+                <p>Estado: <strong>{{ quote.status }}</strong></p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <a href="/dashboard" class="btn btn-secondary">📊 Dashboard</a>
+                <a href="/quote/{{ quote.id }}/pdf" class="btn btn-primary">📥 Descargar PDF</a>
+            </div>
+        </header>
+
+        <div class="card">
+            <h3>Información del Cliente</h3>
+            <p><strong>Cliente:</strong> {{ quote.client_name }}</p>
+            <p><strong>Email:</strong> {{ quote.client_email or 'No especificado' }}</p>
+            
+            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+
+            <h3>Servicio Requerido</h3>
+            <p><strong>Concepto:</strong> {{ quote.service_title }}</p>
+            <p><strong>Descripción:</strong> {{ quote.description or 'Sin detalles adicionales' }}</p>
+
+            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+
+            <h3>Desglose Financiero</h3>
+            <p><strong>Monto Base:</strong> ${{ "%.2f"|format(quote.amount) }}</p>
+            <p><strong>Impuesto ({{ quote.tax_rate }}%):</strong> ${{ "%.2f"|format(quote.amount * (quote.tax_rate / 100.0)) }}</p>
+            <h2 style="color: #2563eb;">Total: ${{ "%.2f"|format(quote.total_amount) }}</h2>
+
+            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+
+            <p style="font-size: 0.9rem; color: #64748b;">
+                🔗 Enlace público para el cliente: <br>
+                <input type="text" readonly value="{{ request.base_url }}q/{{ quote.public_token }}" style="width: 100%; margin-top: 4px; font-family: monospace;">
+            </p>
+        </div>
+    </div>
+</body>
+</html>

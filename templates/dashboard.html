@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | QuoteFlow</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div>
+                <h1>📊 Dashboard de Cotizaciones</h1>
+                <p>Sesión activa: <strong>{{ user.email }}</strong> | Plan: 
+                    {% if user.plan == 'pro' %}
+                        <span style="text-transform: uppercase; font-weight: bold; color: #16a34a;">{{ user.plan }}</span>
+                    {% else %}
+                        <span style="text-transform: uppercase; font-weight: bold; color: #2563eb;">{{ user.plan }}</span>
+                    {% endif %}
+                </p>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <a href="/" class="btn btn-primary">+ Nueva Cotización</a>
+                <a href="/settings" class="btn btn-secondary">⚙️ Perfil / Logo</a>
+                {% if user.plan == 'free' %}
+                <a href="/upgrade" class="btn btn-secondary" style="border-color: #2563eb; color: #2563eb;">⭐ Pasarte a PRO</a>
+                {% endif %}
+                <form action="/logout" method="POST" style="margin: 0;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="btn btn-outline" style="color: #ef4444; border-color: #ef4444;">Cerrar Sesión</button>
+                </form>
+            </div>
+        </header>
+
+        {% if upgraded %}
+        <div style="background: #f0fdf4; color: #166534; padding: 12px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #bbf7d0;">
+            🎉 ¡Felicitaciones! Has actualizado con éxito al <strong>Plan PRO Beta</strong>.
+        </div>
+        {% endif %}
+
+        {% if user.plan == 'free' %}
+        <div style="background: #eff6ff; color: #1e40af; padding: 12px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #bfdbfe; font-size: 0.9rem;">
+            ℹ️ Has utilizado <strong>{{ quote_count }} de {{ free_limit }}</strong> cotizaciones gratuitas de tu plan.
+        </div>
+        {% endif %}
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+            <div class="card" style="border-left: 4px solid #2563eb;">
+                <p style="color: #64748b; font-size: 0.85rem; margin: 0;">Total Cotizado</p>
+                <h2 style="margin: 4px 0 0 0;">${{ "%.2f"|format(stats.total_revenue) }}</h2>
+                <small style="color: #64748b;">{{ stats.total_count }} cotizaciones</small>
+            </div>
+            <div class="card" style="border-left: 4px solid #f59e0b;">
+                <p style="color: #64748b; font-size: 0.85rem; margin: 0;">Pendiente</p>
+                <h2 style="margin: 4px 0 0 0; color: #d97706;">${{ "%.2f"|format(stats.pending_revenue) }}</h2>
+                <small style="color: #64748b;">{{ stats.pending_count }} cotizaciones</small>
+            </div>
+            <div class="card" style="border-left: 4px solid #16a34a;">
+                <p style="color: #64748b; font-size: 0.85rem; margin: 0;">Aprobado</p>
+                <h2 style="margin: 4px 0 0 0; color: #16a34a;">${{ "%.2f"|format(stats.approved_revenue) }}</h2>
+                <small style="color: #64748b;">{{ stats.approved_count }} cotizaciones</small>
+            </div>
+            <div class="card" style="border-left: 4px solid #059669;">
+                <p style="color: #64748b; font-size: 0.85rem; margin: 0;">Pagado</p>
+                <h2 style="margin: 4px 0 0 0; color: #059669;">${{ "%.2f"|format(stats.paid_revenue) }}</h2>
+                <small style="color: #64748b;">{{ stats.paid_count }} cotizaciones</small>
+            </div>
+        </div>
+
+        <form action="/dashboard" method="GET" class="card" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 24px;">
+            <input type="text" name="q" value="{{ q }}" placeholder="Buscar por cliente, servicio o #ID..." style="flex: 1; min-width: 200px;">
+            <select name="status" style="width: auto;">
+                <option value="Todos" {% if current_status == 'Todos' %}selected{% endif %}>Todos los Estados</option>
+                <option value="Pendiente" {% if current_status == 'Pendiente' %}selected{% endif %}>Pendientes</option>
+                <option value="Aprobado" {% if current_status == 'Aprobado' %}selected{% endif %}>Aprobados</option>
+                <option value="Pagado" {% if current_status == 'Pagado' %}selected{% endif %}>Pagados</option>
+                <option value="Rechazado" {% if current_status == 'Rechazado' %}selected{% endif %}>Rechazados</option>
+            </select>
+            <button type="submit" class="btn btn-secondary">Filtrar</button>
+            {% if q or current_status != 'Todos' %}
+            <a href="/dashboard" class="btn btn-outline" style="text-decoration: none;">Limpiar</a>
+            {% endif %}
+        </form>
+
+        <div class="card" style="padding: 0; overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f8fafc; text-align: left; border-bottom: 1px solid #e2e8f0;">
+                        <th style="padding: 12px 16px;">Folio</th>
+                        <th style="padding: 12px 16px;">Cliente</th>
+                        <th style="padding: 12px 16px;">Servicio</th>
+                        <th style="padding: 12px 16px;">Total</th>
+                        <th style="padding: 12px 16px;">Estado</th>
+                        <th style="padding: 12px 16px; text-align: right;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for quote in quotes %}
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                        <td style="padding: 12px 16px; font-weight: bold;">#{{ "%03d"|format(quote.id) }}</td>
+                        <td style="padding: 12px 16px;">{{ quote.client_name }}</td>
+                        <td style="padding: 12px 16px;">{{ quote.service_title }}</td>
+                        <td style="padding: 12px 16px; font-weight: bold;">${{ "%.2f"|format(quote.total_amount) }}</td>
+                        <td style="padding: 12px 16px;">
+                            <form action="/update-status/{{ quote.id }}" method="POST" style="margin: 0;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <select name="status" onchange="this.form.submit()" style="padding: 4px 8px; font-size: 0.85rem; border-radius: 4px;">
+                                    <option value="Pendiente" {% if quote.status == 'Pendiente' %}selected{% endif %}>Pendiente</option>
+                                    <option value="Aprobado" {% if quote.status == 'Aprobado' %}selected{% endif %}>Aprobado</option>
+                                    <option value="Pagado" {% if quote.status == 'Pagado' %}selected{% endif %}>Pagado</option>
+                                    <option value="Rechazado" {% if quote.status == 'Rechazado' %}selected{% endif %}>Rechazado</option>
+                                </select>
+                            </form>
+                        </td>
+                        <td style="padding: 12px 16px; text-align: right;">
+                            <a href="/quote/{{ quote.id }}" class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.8rem;">Ver</a>
+                            <a href="/quote/{{ quote.id }}/edit" class="btn btn-outline" style="padding: 4px 8px; font-size: 0.8rem;">Editar</a>
+                            <a href="/quote/{{ quote.id }}/pdf" class="btn btn-primary" style="padding: 4px 8px; font-size: 0.8rem;">PDF</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 24px; color: #64748b;">
+                            No se encontraron cotizaciones registrados.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

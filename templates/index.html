@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nueva Cotización | QuoteFlow</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container" style="max-width: 650px;">
+        <header class="header">
+            <div>
+                <h1>⚡ Nueva Cotización</h1>
+                <p>Genera un presupuesto rápido para tu cliente</p>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <a href="/dashboard" class="btn btn-secondary">📊 Dashboard</a>
+                <form action="/logout" method="POST" style="margin: 0;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="btn btn-outline" style="color: #ef4444; border-color: #ef4444;">Salir</button>
+                </form>
+            </div>
+        </header>
+
+        {% if limit_reached %}
+        <div class="card" style="text-align: center; border-top: 4px solid #ef4444;">
+            <h2 style="color: #dc2626;">⚠️ Límite de Cotizaciones Alcanzado</h2>
+            <p>Has alcanzado el límite máximo de <strong>{{ free_limit }} cotizaciones</strong> de tu plan Gratuito.</p>
+            <a href="/upgrade" class="btn btn-primary" style="background: #2563eb; display: inline-block; margin-top: 12px;">
+                🚀 Pasarte a Plan PRO (Beta Gratis)
+            </a>
+        </div>
+        {% else %}
+
+        {% if error %}
+        <p style="color: #ef4444; background: #fef2f2; padding: 10px; border-radius: 6px; border: 1px solid #fecaca;">{{ error }}</p>
+        {% endif %}
+
+        <div class="card">
+            <form action="/create" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <h3>Datos del Cliente</h3>
+                <div class="form-group">
+                    <label>Nombre del Cliente / Empresa *</label>
+                    <input type="text" name="client_name" required placeholder="Ej: Juan Pérez o Acme Corp">
+                </div>
+                <div class="form-group">
+                    <label>Correo Electrónico del Cliente</label>
+                    <input type="email" name="client_email" placeholder="cliente@email.com">
+                </div>
+
+                <h3>Detalles del Servicio</h3>
+                <div class="form-group">
+                    <label>Título del Servicio *</label>
+                    <input type="text" name="service_title" required placeholder="Ej: Desarrollo Web Corporativo">
+                </div>
+                <div class="form-group">
+                    <label>Descripción / Alcance</label>
+                    <textarea name="description" rows="3" placeholder="Detalla lo que incluye este servicio..."></textarea>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label>Monto Base ($) *</label>
+                        <input type="number" step="0.01" min="0.01" name="amount" required placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label>Impuesto / IVA (%)</label>
+                        <input type="number" step="0.1" min="0" max="100" name="tax_rate" value="0.0">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 12px;">
+                    Guardar y Generar Presupuesto
+                </button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
