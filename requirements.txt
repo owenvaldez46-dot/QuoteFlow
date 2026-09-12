@@ -5,3 +5,5 @@ reportlab
 python-dotenv
 psycopg2-binary
 sqlalchemy
+itsdangerous
+python-multipart
