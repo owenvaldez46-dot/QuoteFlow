@@ -24,7 +24,11 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # 5. Clase base para declarar los modelos de la base de datos
 Base = declarative_base()
 
-# 6. Dependencia para inyectar la sesión en tus rutas de FastAPI
+# 6. Función para inicializar las tablas en la base de datos (Crea las tablas automáticamente)
+def init_db():
+    Base.metadata.create_all(bind=engine)
+
+# 7. Dependencia para inyectar la sesión en tus rutas de FastAPI
 def get_db():
     db = SessionLocal()
     try:
