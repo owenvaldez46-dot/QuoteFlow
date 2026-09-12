@@ -256,11 +256,11 @@ def get_dashboard_stats(user_id: int):
     try:
         quotes = db.query(Quote).filter(Quote.user_id == user_id).all()
         total_quotes = len(quotes)
-        approved = sum(1 for q in quotes if q.status == "Aprobado")
+        approved = sum(1 for q in quotes if q.status in ["Aprobado", "Pagado"])
         pending = sum(1 for q in quotes if q.status == "Pendiente")
         rejected = sum(1 for q in quotes if q.status == "Rechazado")
         
-        approved_revenue = sum(q.total_amount for q in quotes if q.status == "Aprobado")
+        approved_revenue = sum(q.total_amount for q in quotes if q.status in ["Aprobado", "Pagado"])
         pending_revenue = sum(q.total_amount for q in quotes if q.status == "Pendiente")
         rejected_revenue = sum(q.total_amount for q in quotes if q.status == "Rechazado")
         
@@ -273,6 +273,8 @@ def get_dashboard_stats(user_id: int):
             "total_revenue": approved_revenue,
             "approved_revenue": approved_revenue,
             "approved_amount": approved_revenue,
+            "paid_revenue": approved_revenue,
+            "paid_amount": approved_revenue,
             "pending_revenue": pending_revenue,
             "pending_amount": pending_revenue,
             "rejected_revenue": rejected_revenue,
