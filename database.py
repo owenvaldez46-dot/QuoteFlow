@@ -259,14 +259,21 @@ def get_dashboard_stats(user_id: int):
         approved = sum(1 for q in quotes if q.status == "Aprobado")
         pending = sum(1 for q in quotes if q.status == "Pendiente")
         rejected = sum(1 for q in quotes if q.status == "Rechazado")
-        total_amount = sum(q.total_amount for q in quotes if q.status == "Aprobado")
+        
+        total_revenue = sum(q.total_amount for q in quotes if q.status == "Aprobado")
+        pending_revenue = sum(q.total_amount for q in quotes if q.status == "Pendiente")
+        rejected_revenue = sum(q.total_amount for q in quotes if q.status == "Rechazado")
+        
         return {
             "total": total_quotes,
             "approved": approved,
             "pending": pending,
             "rejected": rejected,
-            "total_amount": total_amount,
-            "total_revenue": total_amount  # Evita el error UndefinedError en dashboard.html
+            "total_amount": total_revenue,
+            "total_revenue": total_revenue,
+            "pending_revenue": pending_revenue,
+            "pending_amount": pending_revenue,
+            "rejected_revenue": rejected_revenue
         }
     finally:
         db.close()
