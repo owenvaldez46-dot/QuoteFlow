@@ -260,7 +260,7 @@ def get_dashboard_stats(user_id: int):
         pending = sum(1 for q in quotes if q.status == "Pendiente")
         rejected = sum(1 for q in quotes if q.status == "Rechazado")
         
-        total_revenue = sum(q.total_amount for q in quotes if q.status == "Aprobado")
+        approved_revenue = sum(q.total_amount for q in quotes if q.status == "Aprobado")
         pending_revenue = sum(q.total_amount for q in quotes if q.status == "Pendiente")
         rejected_revenue = sum(q.total_amount for q in quotes if q.status == "Rechazado")
         
@@ -269,11 +269,14 @@ def get_dashboard_stats(user_id: int):
             "approved": approved,
             "pending": pending,
             "rejected": rejected,
-            "total_amount": total_revenue,
-            "total_revenue": total_revenue,
+            "total_amount": approved_revenue,
+            "total_revenue": approved_revenue,
+            "approved_revenue": approved_revenue,
+            "approved_amount": approved_revenue,
             "pending_revenue": pending_revenue,
             "pending_amount": pending_revenue,
-            "rejected_revenue": rejected_revenue
+            "rejected_revenue": rejected_revenue,
+            "rejected_amount": rejected_revenue
         }
     finally:
         db.close()
