@@ -80,7 +80,7 @@ class Quote(Base):
             "created_at": self.created_at
         }
 
-# --- INICIALIZACIÓN Y FUNCIONES ---
+# --- INICIALIZACIÓN Y FUNCIONES DE BASE DE DATOS ---
 def init_db():
     Base.metadata.create_all(bind=engine)
 
@@ -265,7 +265,8 @@ def get_dashboard_stats(user_id: int):
             "approved": approved,
             "pending": pending,
             "rejected": rejected,
-            "total_amount": total_amount
+            "total_amount": total_amount,
+            "total_revenue": total_amount  # Evita el error UndefinedError en dashboard.html
         }
     finally:
         db.close()
