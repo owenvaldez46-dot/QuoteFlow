@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cotización #{{ "%03d"|format(quote.id) }} | QuoteFlow</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -12,8 +13,9 @@
                 <h1>Cotización #{{ "%03d"|format(quote.id) }}</h1>
                 <p>Estado: <strong>{{ quote.status }}</strong></p>
             </div>
-            <div style="display: flex; gap: 10px;">
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                 <a href="/dashboard" class="btn btn-secondary">📊 Dashboard</a>
+                <a href="/quote/{{ quote.id }}/edit" class="btn btn-secondary">✏️ Editar</a>
                 <a href="/quote/{{ quote.id }}/pdf" class="btn btn-primary">📥 Descargar PDF</a>
             </div>
         </header>
@@ -34,15 +36,43 @@
             <h3>Desglose Financiero</h3>
             <p><strong>Monto Base:</strong> ${{ "%.2f"|format(quote.amount) }}</p>
             <p><strong>Impuesto ({{ quote.tax_rate }}%):</strong> ${{ "%.2f"|format(quote.amount * (quote.tax_rate / 100.0)) }}</p>
-            <h2 style="color: #2563eb;">Total: ${{ "%.2f"|format(quote.total_amount) }}</h2>
+            <h2 style="color: #2563eb; margin-top: 10px;">Total: ${{ "%.2f"|format(quote.total_amount) }}</h2>
 
             <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
 
-            <p style="font-size: 0.9rem; color: #64748b;">
-                🔗 Enlace público para el cliente: <br>
-                <input type="text" readonly value="{{ request.base_url }}q/{{ quote.public_token }}" style="width: 100%; margin-top: 4px; font-family: monospace;">
-            </p>
+            <!-- Cuadro de Enlace Público para el Cliente -->
+            <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px;">
+                <label style="font-weight: bold; display: block; margin-bottom: 8px; color: #1e293b;">
+                    🔗 Enlace público para el cliente:
+                </label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="shareUrlInput" readonly value="{{ share_url if share_url else (request.base_url ~ 'q/' ~ (quote.token or quote.public_token)) }}" 
+                           style="flex: 1; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: monospace; font-size: 0.9rem; background-color: #ffffff;">
+                    <button type="button" onclick="copyShareUrl()" class="btn btn-primary" style="padding: 8px 16px; white-space: nowrap;">
+                        📋 Copiar
+                    </button>
+                </div>
+                <p id="copyAlert" style="color: #16a34a; font-size: 0.85rem; margin-top: 6px; margin-bottom: 0; display: none; font-weight: 600;">
+                    ✓ ¡Enlace copiado al portapapeles!
+                </p>
+            </div>
         </div>
     </div>
+
+    <script>
+    function copyShareUrl() {
+        var copyText = document.getElementById("shareUrlInput");
+        copyText.select();
+        copyText.setSelectionRange(0, 99999); // Para dispositivos móviles
+        
+        navigator.clipboard.writeText(copyText.value).then(function() {
+            var alertMsg = document.getElementById("copyAlert");
+            alertMsg.style.display = "block";
+            setTimeout(function() {
+                alertMsg.style.display = "none";
+            }, 3000);
+        });
+    }
+    </script>
 </body>
 </html>
