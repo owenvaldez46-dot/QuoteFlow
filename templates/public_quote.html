@@ -32,17 +32,17 @@
 
             {% if quote.status == 'Pendiente' %}
             <div style="display: flex; gap: 12px; margin-top: 24px;">
-                <form action="respond" method="POST" style="flex: 1;">
+                <form action="/q/{{ token }}/respond" method="POST" style="flex: 1;">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <input type="hidden" name="action" value="approve">
-                    <button type="submit" class="btn btn-primary" style="width: 100%; background: #16a34a;">
+                    <button type="submit" class="btn btn-primary" style="width: 100%; background: #16a34a; border: none; padding: 12px; border-radius: 6px; font-weight: bold; color: white; cursor: pointer;">
                         ✓ Aprobar Presupuesto
                     </button>
                 </form>
-                <form action="respond" method="POST" style="flex: 1;">
+                <form action="/q/{{ token }}/respond" method="POST" style="flex: 1;">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <input type="hidden" name="action" value="reject">
-                    <button type="submit" class="btn btn-outline" style="width: 100%; color: #dc2626; border-color: #dc2626;">
+                    <button type="submit" class="btn btn-outline" style="width: 100%; color: #dc2626; border: 1px solid #dc2626; padding: 12px; border-radius: 6px; font-weight: bold; background: transparent; cursor: pointer;">
                         ✕ Rechazar
                     </button>
                 </form>
