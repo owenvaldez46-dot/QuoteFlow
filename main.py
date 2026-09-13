@@ -47,6 +47,10 @@ FREE_QUOTE_LIMIT = 5
 def startup_event():
     init_db()
 
+@app.get("/favicon.ico")
+def favicon():
+    return Response(status_code=204)
+
 def get_csrf_token(request: Request) -> str:
     if "csrf_token" not in request.session:
         request.session["csrf_token"] = secrets.token_hex(16)
