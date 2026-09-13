@@ -277,9 +277,9 @@ def show_quote(request: Request, quote_id: int):
     if not quote:
         return HTMLResponse(content="Cotización no encontrada", status_code=404)
     
-    # Construcción dinámica del enlace público para compartir
     base_url = str(request.base_url).rstrip("/")
-    share_url = f"{base_url}/q/{quote['token']}"
+    token_val = quote.get("token") or quote.get("public_token", "")
+    share_url = f"{base_url}/q/{token_val}"
 
     return render_with_csrf(request, "quote.html", {
         "quote": quote,
@@ -394,7 +394,11 @@ def show_public_quote(request: Request, token: str):
         return HTMLResponse(content="<h1>404 - Presupuesto no encontrado</h1>", status_code=404)
     
     creator = get_user_by_id(quote["user_id"])
-    return render_with_csrf(request, "public_quote.html", {"quote": quote, "creator": creator})
+    return render_with_csrf(request, "public_quote.html", {
+        "quote": quote,
+        "creator": creator,
+        "token": token
+    })
 
 @app.post("/q/{token}/respond")
 def respond_public_quote(request: Request, token: str, csrf_token: str = Form(...), action: str = Form(...)):
