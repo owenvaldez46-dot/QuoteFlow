@@ -24,7 +24,7 @@
 
             <div style="background: #f8fafc; padding: 16px; border-radius: 8px; margin: 20px 0;">
                 <h3>{{ quote.service_title }}</h3>
-                <p>{{ quote.description or 'Sin detalles adicionles.' }}</p>
+                <p>{{ quote.description or 'Sin detalles adicionales.' }}</p>
                 <h2 style="color: #2563eb; margin-top: 12px;">Total: ${{ "%.2f"|format(quote.total_amount) }}</h2>
             </div>
 
@@ -32,14 +32,14 @@
 
             {% if quote.status == 'Pendiente' %}
             <div style="display: flex; gap: 12px; margin-top: 24px;">
-                <form action="/q/{{ quote.public_token }}/respond" method="POST" style="flex: 1;">
+                <form action="respond" method="POST" style="flex: 1;">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <input type="hidden" name="action" value="approve">
                     <button type="submit" class="btn btn-primary" style="width: 100%; background: #16a34a;">
                         ✓ Aprobar Presupuesto
                     </button>
                 </form>
-                <form action="/q/{{ quote.public_token }}/respond" method="POST" style="flex: 1;">
+                <form action="respond" method="POST" style="flex: 1;">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <input type="hidden" name="action" value="reject">
                     <button type="submit" class="btn btn-outline" style="width: 100%; color: #dc2626; border-color: #dc2626;">
