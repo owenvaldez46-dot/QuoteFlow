@@ -276,7 +276,16 @@ def show_quote(request: Request, quote_id: int):
     quote = get_quote_by_id(quote_id, user_id=user["id"])
     if not quote:
         return HTMLResponse(content="Cotización no encontrada", status_code=404)
-    return render_with_csrf(request, "quote.html", {"quote": quote, "user": user})
+    
+    # Construcción dinámica del enlace público para compartir
+    base_url = str(request.base_url).rstrip("/")
+    share_url = f"{base_url}/q/{quote['token']}"
+
+    return render_with_csrf(request, "quote.html", {
+        "quote": quote,
+        "user": user,
+        "share_url": share_url
+    })
 
 @app.get("/quote/{quote_id}/edit", response_class=HTMLResponse)
 def show_edit_form(request: Request, quote_id: int):
@@ -373,6 +382,11 @@ def download_pdf(request: Request, quote_id: int):
     )
 
 # --- PORTAL PÚBLICO ---
+@app.get("/q")
+@app.get("/q/")
+def redirect_public_root():
+    return RedirectResponse(url="/", status_code=303)
+
 @app.get("/q/{token}", response_class=HTMLResponse)
 def show_public_quote(request: Request, token: str):
     quote = get_quote_by_token(token)
