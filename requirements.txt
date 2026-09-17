@@ -7,3 +7,4 @@ psycopg2-binary
 sqlalchemy
 itsdangerous
 python-multipart
+stripe
