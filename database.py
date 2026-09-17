@@ -196,6 +196,18 @@ def update_quote(quote_id: int, user_id: int, client_name: str, client_email: st
     finally:
         db.close()
 
+def delete_quote(quote_id: int, user_id: int) -> bool:
+    db = SessionLocal()
+    try:
+        quote = db.query(Quote).filter(Quote.id == quote_id, Quote.user_id == user_id).first()
+        if quote:
+            db.delete(quote)
+            db.commit()
+            return True
+        return False
+    finally:
+        db.close()
+
 def get_quote_by_id(quote_id: int, user_id: int):
     db = SessionLocal()
     try:
@@ -266,15 +278,20 @@ def get_dashboard_stats(user_id: int):
         
         return {
             "total": total_quotes,
+            "total_count": total_quotes,
             "approved": approved,
+            "approved_count": approved,
             "pending": pending,
+            "pending_count": pending,
             "rejected": rejected,
+            "rejected_count": rejected,
+            "paid_count": sum(1 for q in quotes if q.status == "Pagado"),
             "total_amount": approved_revenue,
             "total_revenue": approved_revenue,
             "approved_revenue": approved_revenue,
             "approved_amount": approved_revenue,
-            "paid_revenue": approved_revenue,
-            "paid_amount": approved_revenue,
+            "paid_revenue": sum(q.total_amount for q in quotes if q.status == "Pagado"),
+            "paid_amount": sum(q.total_amount for q in quotes if q.status == "Pagado"),
             "pending_revenue": pending_revenue,
             "pending_amount": pending_revenue,
             "rejected_revenue": rejected_revenue,
