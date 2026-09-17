@@ -5,10 +5,52 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard | QuoteFlow</title>
     <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .header-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .actions-cell {
+            display: flex;
+            gap: 6px;
+            justify-content: flex-end;
+            align-items: center;
+        }
+        @media (max-width: 768px) {
+            .header-nav {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .header-actions {
+                width: 100%;
+                justify-content: flex-start;
+            }
+            .header-actions a, .header-actions form, .header-actions button {
+                flex: 1;
+                text-align: center;
+            }
+            .table-responsive {
+                border: 0;
+            }
+            .table-responsive table {
+                min-width: 600px;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
-        <header class="header">
+        <header class="header header-nav">
             <div>
                 <h1>📊 Dashboard de Cotizaciones</h1>
                 <p>Sesión activa: <strong>{{ user.email }}</strong> | Plan: 
@@ -19,7 +61,7 @@
                     {% endif %}
                 </p>
             </div>
-            <div style="display: flex; gap: 10px; align-items: center;">
+            <div class="header-actions">
                 <a href="/" class="btn btn-primary">+ Nueva Cotización</a>
                 <a href="/settings" class="btn btn-secondary">⚙️ Perfil / Logo</a>
                 {% if user.plan == 'free' %}
@@ -27,7 +69,7 @@
                 {% endif %}
                 <form action="/logout" method="POST" style="margin: 0;">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button type="submit" class="btn btn-outline" style="color: #ef4444; border-color: #ef4444;">Cerrar Sesión</button>
+                    <button type="submit" class="btn btn-outline" style="color: #ef4444; border-color: #ef4444; width: 100%;">Cerrar Sesión</button>
                 </form>
             </div>
         </header>
@@ -82,7 +124,7 @@
             {% endif %}
         </form>
 
-        <div class="card" style="padding: 0; overflow-x: auto;">
+        <div class="card table-responsive" style="padding: 0; overflow-x: auto;">
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr style="background: #f8fafc; text-align: left; border-bottom: 1px solid #e2e8f0;">
@@ -113,14 +155,19 @@
                             </form>
                         </td>
                         <td style="padding: 12px 16px; text-align: right;">
-                            <a href="/quote/{{ quote.id }}" class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.8rem;">Ver</a>
-                            <a href="/quote/{{ quote.id }}/edit" class="btn btn-outline" style="padding: 4px 8px; font-size: 0.8rem;">Editar</a>
-                            <a href="/quote/{{ quote.id }}/pdf" class="btn btn-primary" style="padding: 4px 8px; font-size: 0.8rem;">PDF</a>
+                            <div class="actions-cell">
+                                <a href="/quote/{{ quote.id }}" class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.8rem; text-decoration: none;">Ver</a>
+                                <a href="/quote/{{ quote.id }}/edit" class="btn btn-outline" style="padding: 4px 8px; font-size: 0.8rem; text-decoration: none;">Editar</a>
+                                <form action="/quote/{{ quote.id }}/delete" method="POST" style="margin: 0;" onsubmit="return confirm('¿Estás seguro de que deseas eliminar esta cotización?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <button type="submit" class="btn btn-outline" style="padding: 4px 8px; font-size: 0.8rem; color: #ef4444; border-color: #ef4444;">Eliminar</button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="6" style="text-align: center; padding: 24px; color: #64748b;">
+                        <td colspan="6" style="padding: 24px; text-align: center; color: #64748b;">
                             No se encontraron cotizaciones registrados.
                         </td>
                     </tr>
