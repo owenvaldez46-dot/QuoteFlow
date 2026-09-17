@@ -1,6 +1,7 @@
 import os
 import secrets
 import hmac
+import stripe
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Form, HTTPException, File, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -34,6 +35,14 @@ app = FastAPI(title="QuoteFlow")
 
 SECRET_KEY = os.getenv("SECRET_KEY", "fallback_dev_secret_key_change_in_production")
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
+
+# --- CONFIGURACIÓN DE STRIPE ---
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_PRICE_ID = os.getenv("STRIPE_PRICE_ID", "")
+BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
+
+stripe.api_key = STRIPE_SECRET_KEY
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
@@ -248,6 +257,7 @@ def create_quote(
     )
     return RedirectResponse(url=f"/quote/{quote_id}", status_code=303)
 
+# --- STRIPE & SUSCRIPCIONES ---
 @app.get("/upgrade", response_class=HTMLResponse)
 def show_upgrade(request: Request, reason: str = ""):
     user = get_current_user(request)
@@ -262,15 +272,57 @@ def show_upgrade(request: Request, reason: str = ""):
         "reason": reason
     })
 
-@app.post("/upgrade/process")
-def process_upgrade(request: Request, csrf_token: str = Form(...)):
+@app.post("/subscription/checkout")
+def create_checkout_session(request: Request, csrf_token: str = Form(...)):
     verify_csrf(request, csrf_token)
     user = get_current_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
-    update_user_plan(user["id"], "pro")
-    return RedirectResponse(url="/dashboard?upgraded=true", status_code=303)
+    try:
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            mode='subscription',
+            customer_email=user["email"],
+            line_items=[{
+                'price': STRIPE_PRICE_ID,
+                'quantity': 1,
+            }],
+            success_url=f"{BASE_URL}/dashboard?upgraded=true",
+            cancel_url=f"{BASE_URL}/upgrade?cancelled=true",
+            client_reference_id=str(user["id"])
+        )
+        return RedirectResponse(url=checkout_session.url, status_code=303)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error iniciando pago: {str(e)}")
+
+@app.post("/webhook/stripe")
+async def stripe_webhook(request: Request):
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature")
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, STRIPE_WEBHOOK_SECRET
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error Webhook: {str(e)}")
+
+    # Pago completado -> Activar Plan Pro
+    if event['type'] == 'checkout.session.completed':
+        session = event['data']['object']
+        user_id = session.get('client_reference_id')
+        if user_id:
+            update_user_plan(int(user_id), "pro")
+
+    # Cancelación de suscripción -> Volver a Plan Free
+    elif event['type'] == 'customer.subscription.deleted':
+        session = event['data']['object']
+        user_id = session.get('client_reference_id')
+        if user_id:
+            update_user_plan(int(user_id), "free")
+
+    return {"status": "success"}
 
 @app.get("/quote/{quote_id}", response_class=HTMLResponse)
 def show_quote(request: Request, quote_id: int):
