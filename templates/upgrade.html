@@ -18,7 +18,7 @@
 
         {% if reason == 'limit' %}
         <div class="alert alert-warning">
-            <strong>⚠️ Límite Alcanzado:</strong> Has utilizado las {{ free_limit }} cotizaciones gratuitas. ¡Pásate a PRO Beta gratis para continuar!
+            <strong>⚠️ Límite Alcanzado:</strong> Has utilizado las {{ free_limit }} cotizaciones gratuitas. ¡Pásate a PRO para continuar creando sin límites!
         </div>
         {% endif %}
 
@@ -42,27 +42,28 @@
                 </div>
             </div>
 
-            <!-- Plan PRO (Beta) -->
+            <!-- Plan PRO -->
             <div class="card pricing-card pricing-card-pro">
-                <div class="badge-featured">PRO Gratis por Tiempo Limitado</div>
+                <div class="badge-featured">Recomendado</div>
                 <div class="card-body">
-                    <h2 class="text-primary">Plan PRO (Beta)</h2>
+                    <h2 class="text-primary">Plan PRO</h2>
                     <div class="price">
-                        $0 <span class="price-subtitle">(Gratis en Beta)</span>
+                        $9.99 <span class="price-subtitle">/ mes</span>
                     </div>
                     <ul class="feature-list">
                         <li>✓ <strong>Cotizaciones Ilimitadas</strong></li>
                         <li>✓ <strong>Logo corporativo en PDF</strong></li>
                         <li>✓ Portal público para clientes</li>
+                        <li>✓ Soporte prioritario</li>
                     </ul>
                 </div>
                 <div class="card-footer">
                     {% if user.plan == 'pro' %}
                     <button class="btn btn-success" disabled style="width: 100%;">✓ Plan PRO Activo</button>
                     {% else %}
-                    <form action="/upgrade/process" method="POST">
+                    <form action="/subscription/checkout" method="POST">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                        <button type="submit" class="btn btn-primary" style="width: 100%;">🚀 Obtener PRO Gratis por Lanzamiento</button>
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">🚀 Suscribirme al Plan PRO</button>
                     </form>
                     {% endif %}
                 </div>
