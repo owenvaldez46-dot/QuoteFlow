@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Planes y Suscripción | QuoteFlow</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -16,37 +17,48 @@
         </header>
 
         {% if reason == 'limit' %}
-        <div style="background: #fef2f2; color: #991b1b; padding: 14px; border-radius: 8px; margin-bottom: 24px; border: 1px solid #fecaca; text-align: center;">
+        <div class="alert alert-warning">
             <strong>⚠️ Límite Alcanzado:</strong> Has utilizado las {{ free_limit }} cotizaciones gratuitas. ¡Pásate a PRO Beta gratis para continuar!
         </div>
         {% endif %}
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-top: 20px;">
-            <div class="card" style="border: 2px solid #e2e8f0; display: flex; flex-direction: column; justify-content: space-between;">
-                <div>
+        <div class="pricing-grid">
+            <!-- Plan Gratuito -->
+            <div class="card pricing-card">
+                <div class="card-body">
                     <h2>Plan Gratuito</h2>
-                    <div style="font-size: 2.5rem; font-weight: bold; margin: 16px 0;">$0</div>
-                    <ul style="list-style: none; padding: 0; line-height: 2;">
+                    <div class="price">$0</div>
+                    <ul class="feature-list">
                         <li>✓ Hasta {{ free_limit }} cotizaciones</li>
                         <li>✓ Exportación PDF básica</li>
                     </ul>
                 </div>
-                <button class="btn btn-secondary" disabled style="width: 100%;">Plan Actual</button>
+                <div class="card-footer">
+                    {% if user.plan == 'pro' %}
+                    <button class="btn btn-secondary" disabled style="width: 100%;">Plan Básico</button>
+                    {% else %}
+                    <button class="btn btn-secondary" disabled style="width: 100%;">Plan Actual</button>
+                    {% endif %}
+                </div>
             </div>
 
-            <div class="card" style="border: 2px solid #2563eb; background: #f8fafc; display: flex; flex-direction: column; justify-content: space-between;">
-                <div>
-                    <h2 style="color: #2563eb;">Plan PRO (Beta)</h2>
-                    <div style="font-size: 2.5rem; font-weight: bold; margin: 16px 0;">$0 <span style="font-size: 0.9rem; color: #16a34a;">(Gratis en Beta)</span></div>
-                    <ul style="list-style: none; padding: 0; line-height: 2;">
+            <!-- Plan PRO (Beta) -->
+            <div class="card pricing-card pricing-card-pro">
+                <div class="badge-featured">PRO Gratis por Tiempo Limitado</div>
+                <div class="card-body">
+                    <h2 class="text-primary">Plan PRO (Beta)</h2>
+                    <div class="price">
+                        $0 <span class="price-subtitle">(Gratis en Beta)</span>
+                    </div>
+                    <ul class="feature-list">
                         <li>✓ <strong>Cotizaciones Ilimitadas</strong></li>
                         <li>✓ <strong>Logo corporativo en PDF</strong></li>
                         <li>✓ Portal público para clientes</li>
                     </ul>
                 </div>
-                <div>
+                <div class="card-footer">
                     {% if user.plan == 'pro' %}
-                    <button class="btn" style="width: 100%; background: #16a34a; color: white;" disabled>✓ Plan PRO Activo</button>
+                    <button class="btn btn-success" disabled style="width: 100%;">✓ Plan PRO Activo</button>
                     {% else %}
                     <form action="/upgrade/process" method="POST">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
