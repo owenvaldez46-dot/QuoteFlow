@@ -20,6 +20,7 @@ from database import (
     update_user_plan,
     save_quote,
     update_quote,
+    delete_quote,
     get_quote_by_id,
     get_quote_by_token,
     get_filtered_quotes,
@@ -334,6 +335,16 @@ def process_edit_quote(
         tax_rate=tax_rate
     )
     return RedirectResponse(url=f"/quote/{quote_id}", status_code=303)
+
+@app.post("/quote/{quote_id}/delete")
+def process_delete_quote(request: Request, quote_id: int, csrf_token: str = Form(...)):
+    verify_csrf(request, csrf_token)
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    delete_quote(quote_id=quote_id, user_id=user["id"])
+    return RedirectResponse(url="/dashboard", status_code=303)
 
 @app.get("/dashboard", response_class=HTMLResponse)
 def show_dashboard(request: Request, q: str = "", status: str = "Todos", upgraded: bool = False):
