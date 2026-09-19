@@ -3,72 +3,106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planes y Suscripción | QuoteFlow</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <title>QuoteFlow - Obtener Plan PRO</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .pricing-card {
+            border: 2px solid #0d6efd;
+            border-radius: 1rem;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s;
+        }
+        .pricing-card:hover {
+            transform: translateY(-5px);
+        }
+        .badge-ltd {
+            background-color: #198754;
+            font-size: 0.9rem;
+        }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <header class="header">
-            <div>
-                <h1>⭐ Planes y Suscripción</h1>
-                <p>Elige el plan ideal para escalar tu negocio</p>
+
+    <!-- Navegación -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="/dashboard"><i class="bi bi-file-earmark-text"></i> QuoteFlow</a>
+            <div class="d-flex align-items-center">
+                <span class="text-light me-3 small d-none d-md-inline">{{ user.email }}</span>
+                <a href="/dashboard" class="btn btn-outline-light btn-sm me-2">Dashboard</a>
+                <form action="/logout" method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="btn btn-danger btn-sm">Cerrar Sesión</button>
+                </form>
             </div>
-            <a href="/dashboard" class="btn btn-secondary">📊 Dashboard</a>
-        </header>
+        </div>
+    </nav>
+
+    <div class="container py-5">
 
         {% if reason == 'limit' %}
-        <div class="alert alert-warning">
-            <strong>⚠️ Límite Alcanzado:</strong> Has utilizado las {{ free_limit }} cotizaciones gratuitas. ¡Pásate a PRO para continuar creando sin límites!
+        <div class="alert alert-warning alert-dismissible fade show text-center mb-4" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <strong>Has alcanzado el límite del Plan Gratuito ({{ quote_count }}/{{ free_limit }} cotizaciones).</strong>
+            Actualiza a <strong>PRO</strong> para continuar creando cotizaciones sin restricciones.
         </div>
         {% endif %}
 
-        <div class="pricing-grid">
-            <!-- Plan Gratuito -->
-            <div class="card pricing-card">
-                <div class="card-body">
-                    <h2>Plan Gratuito</h2>
-                    <div class="price">$0</div>
-                    <ul class="feature-list">
-                        <li>✓ Hasta {{ free_limit }} cotizaciones</li>
-                        <li>✓ Exportación PDF básica</li>
-                    </ul>
-                </div>
-                <div class="card-footer">
-                    {% if user.plan == 'pro' %}
-                    <button class="btn btn-secondary" disabled style="width: 100%;">Plan Básico</button>
-                    {% else %}
-                    <button class="btn btn-secondary" disabled style="width: 100%;">Plan Actual</button>
-                    {% endif %}
-                </div>
-            </div>
+        <div class="text-center mb-5">
+            <h1 class="fw-bold">Obtén QuoteFlow PRO</h1>
+            <p class="lead text-muted">Aumenta tus ventas y profesionaliza tus cotizaciones con un solo pago de por vida.</p>
+            <span class="badge badge-ltd rounded-pill px-3 py-2"><i class="bi bi-lightning-charge-fill"></i> Oferta por Tiempo Limitado: Pago Único</span>
+        </div>
 
-            <!-- Plan PRO -->
-            <div class="card pricing-card pricing-card-pro">
-                <div class="badge-featured">Recomendado</div>
-                <div class="card-body">
-                    <h2 class="text-primary">Plan PRO</h2>
-                    <div class="price">
-                        $9.99 <span class="price-subtitle">/ mes</span>
+        <div class="row justify-content-center">
+            <div class="col-md-6 col-lg-5">
+                <div class="card pricing-card bg-white p-4">
+                    <div class="card-body text-center">
+                        <h3 class="card-title fw-bold text-primary mb-3">Licencia De Por Vida (LTD)</h3>
+                        <div class="display-4 fw-bold mb-2">$40 <span class="fs-5 text-muted">USD</span></div>
+                        <p class="text-muted small">Pago único. Sin suscripciones ni mensualidades recurrentes.</p>
+
+                        <hr class="my-4">
+
+                        <ul class="list-unstyled text-start mb-4">
+                            <li class="mb-3"><i class="bi bi-check-circle-fill text-success me-2"></i> <strong>Cotizaciones ilimitadas</strong></li>
+                            <li class="mb-3"><i class="bi bi-check-circle-fill text-success me-2"></i> Subida de <strong>logo personalizado</strong></li>
+                            <li class="mb-3"><i class="bi bi-check-circle-fill text-success me-2"></i> Descarga de <strong>PDFs profesionales</strong></li>
+                            <li class="mb-3"><i class="bi bi-check-circle-fill text-success me-2"></i> Portal público para aprobación de clientes</li>
+                            <li class="mb-3"><i class="bi bi-check-circle-fill text-success me-2"></i> Soporte directo por WhatsApp</li>
+                        </ul>
+
+                        <div class="d-grid gap-2">
+                            <!-- Enlace a WhatsApp con tu número (829-855-7354) y correo del cliente -->
+                            <a href="https://wa.me/18298557354?text=Hola,%20quiero%20adquirir%20la%20Licencia%20PRO%20de%20QuoteFlow%20($40%20USD%20-%20Pago%20Único).%20Mi%20correo%20registrado%20es:%20{{ user.email }}"
+                               target="_blank" 
+                               class="btn btn-success btn-lg fw-bold shadow-sm">
+                                <i class="bi bi-whatsapp me-2"></i> Adquirir PRO por WhatsApp
+                            </a>
+                        </div>
+
+                        <div class="mt-4 p-3 bg-light rounded text-start small">
+                            <h6 class="fw-bold mb-2"><i class="bi bi-bank me-1"></i> Método de pago aceptado:</h6>
+                            <ul class="mb-0 ps-3">
+                                <li>Transferencia bancaria local (<strong>Qik Banco Digital</strong>).</li>
+                            </ul>
+                            <p class="mt-2 mb-0 text-muted">Tras realizar la transferencia, escríbenos a WhatsApp y tu cuenta será activada como PRO en pocos minutos.</p>
+                        </div>
                     </div>
-                    <ul class="feature-list">
-                        <li>✓ <strong>Cotizaciones Ilimitadas</strong></li>
-                        <li>✓ <strong>Logo corporativo en PDF</strong></li>
-                        <li>✓ Portal público para clientes</li>
-                        <li>✓ Soporte prioritario</li>
-                    </ul>
-                </div>
-                <div class="card-footer">
-                    {% if user.plan == 'pro' %}
-                    <button class="btn btn-success" disabled style="width: 100%;">✓ Plan PRO Activo</button>
-                    {% else %}
-                    <form action="/subscription/checkout" method="POST">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                        <button type="submit" class="btn btn-primary" style="width: 100%;">🚀 Suscribirme al Plan PRO</button>
-                    </form>
-                    {% endif %}
                 </div>
             </div>
         </div>
+
+        <div class="text-center mt-5">
+            <a href="/dashboard" class="text-decoration-none text-secondary"><i class="bi bi-arrow-left"></i> Volver al Dashboard</a>
+        </div>
+
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
