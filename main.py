@@ -1,7 +1,5 @@
 import os
 import secrets
-import hmac
-import stripe
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Form, HTTPException, File, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -13,12 +11,15 @@ load_dotenv()
 
 from database import (
     init_db,
+    SessionLocal,
+    User,
     create_user,
     authenticate_user,
     get_user_by_id,
     update_user_profile,
     count_user_quotes,
     update_user_plan,
+    count_pro_users,
     save_quote,
     update_quote,
     delete_quote,
@@ -31,45 +32,38 @@ from database import (
 )
 from pdf_generator import generate_pdf_bytes
 
+# Inicializar base de datos
+init_db()
+
 app = FastAPI(title="QuoteFlow")
 
-SECRET_KEY = os.getenv("SECRET_KEY", "fallback_dev_secret_key_change_in_production")
-app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
+# Montar archivos estáticos si existe la carpeta
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# --- CONFIGURACIÓN DE STRIPE ---
-STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
-STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
-STRIPE_PRICE_ID = os.getenv("STRIPE_PRICE_ID", "")
-BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
-
-stripe.api_key = STRIPE_SECRET_KEY
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-MAX_FILE_SIZE = 2 * 1024 * 1024
-UPLOAD_DIR = "static/uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+SECRET_KEY = os.getenv("SECRET_KEY", "fallback_dev_secret_key_change_in_production")
+ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY", "mi_clave_secreta_admin_123")
+
+app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 
 FREE_QUOTE_LIMIT = 5
 
-@app.on_event("startup")
-def startup_event():
-    init_db()
 
-@app.get("/favicon.ico")
-def favicon():
-    return Response(status_code=204)
+# --- HELPERS Y SEGURIDAD CSRF ---
 
 def get_csrf_token(request: Request) -> str:
     if "csrf_token" not in request.session:
-        request.session["csrf_token"] = secrets.token_hex(16)
+        request.session["csrf_token"] = secrets.token_hex(32)
     return request.session["csrf_token"]
 
-def verify_csrf(request: Request, csrf_token: str):
+
+def verify_csrf(request: Request, csrf_token: str = Form(...)):
     session_token = request.session.get("csrf_token")
-    if not session_token or not hmac.compare_digest(session_token, csrf_token):
+    if not session_token or not secrets.compare_digest(session_token, csrf_token):
         raise HTTPException(status_code=403, detail="Token CSRF inválido o expirado.")
+
 
 def get_current_user(request: Request):
     user_id = request.session.get("user_id")
@@ -77,46 +71,46 @@ def get_current_user(request: Request):
         return None
     return get_user_by_id(user_id)
 
-def render_with_csrf(request: Request, template_name: str, context: dict):
+
+def render_with_csrf(request: Request, template_name: str, context: dict = None, status_code: int = 200):
+    if context is None:
+        context = {}
+    context["request"] = request
     context["csrf_token"] = get_csrf_token(request)
-    return templates.TemplateResponse(request=request, name=template_name, context=context)
+    return templates.TemplateResponse(template_name, context, status_code=status_code)
+
 
 # --- RUTAS DE AUTENTICACIÓN ---
+
 @app.get("/register", response_class=HTMLResponse)
-def register_page(request: Request):
+def show_register(request: Request):
     if get_current_user(request):
         return RedirectResponse(url="/dashboard", status_code=303)
-    return render_with_csrf(request, "register.html", {})
+    return render_with_csrf(request, "register.html")
+
 
 @app.post("/register")
 def process_register(
     request: Request,
     email: str = Form(...),
     password: str = Form(...),
-    confirm_password: str = Form(...),
     csrf_token: str = Form(...)
 ):
     verify_csrf(request, csrf_token)
+    user = create_user(email.lower().strip(), password)
+    if not user:
+        return render_with_csrf(request, "register.html", {"error": "El correo ya está registrado."}, status_code=400)
     
-    if password != confirm_password:
-        return render_with_csrf(request, "register.html", {"error": "Las contraseñas no coinciden"})
-    
-    if len(password) < 6:
-        return render_with_csrf(request, "register.html", {"error": "La contraseña debe tener al menos 6 caracteres"})
-
-    user_id = create_user(email, password)
-    if not user_id:
-        return render_with_csrf(request, "register.html", {"error": "El correo ya está registrado"})
-    
-    request.session["user_id"] = user_id
-    request.session["user_email"] = email
+    request.session["user_id"] = user["id"]
     return RedirectResponse(url="/dashboard", status_code=303)
 
+
 @app.get("/login", response_class=HTMLResponse)
-def login_page(request: Request):
+def show_login(request: Request):
     if get_current_user(request):
         return RedirectResponse(url="/dashboard", status_code=303)
-    return render_with_csrf(request, "login.html", {})
+    return render_with_csrf(request, "login.html")
+
 
 @app.post("/login")
 def process_login(
@@ -126,96 +120,84 @@ def process_login(
     csrf_token: str = Form(...)
 ):
     verify_csrf(request, csrf_token)
-    user = authenticate_user(email, password)
+    user = authenticate_user(email.lower().strip(), password)
     if not user:
-        return render_with_csrf(request, "login.html", {"error": "Credenciales incorrectas"})
+        return render_with_csrf(request, "login.html", {"error": "Credenciales incorrectas."}, status_code=400)
     
     request.session["user_id"] = user["id"]
-    request.session["user_email"] = user["email"]
     return RedirectResponse(url="/dashboard", status_code=303)
 
+
 @app.post("/logout")
-def logout(request: Request, csrf_token: str = Form(...)):
+def process_logout(request: Request, csrf_token: str = Form(...)):
     verify_csrf(request, csrf_token)
     request.session.clear()
     return RedirectResponse(url="/login", status_code=303)
 
-# --- PERFIL Y AJUSTES ---
-@app.get("/settings", response_class=HTMLResponse)
-def show_settings(request: Request, saved: bool = False, error: str = None):
-    user = get_current_user(request)
-    if not user:
-        return RedirectResponse(url="/login", status_code=303)
 
-    return render_with_csrf(request, "settings.html", {"user": user, "saved": saved, "error": error})
+# --- RUTA SECRETA DE ADMINISTRACIÓN (ACTIVACIÓN MANUAL PRO) ---
 
-@app.post("/settings")
-async def process_settings(
-    request: Request,
-    csrf_token: str = Form(...),
-    company_name: str = Form(""),
-    company_phone: str = Form(""),
-    company_address: str = Form(""),
-    logo: UploadFile = File(None)
-):
-    verify_csrf(request, csrf_token)
-    user = get_current_user(request)
-    if not user:
-        return RedirectResponse(url="/login", status_code=303)
-
-    logo_path = user.get("company_logo")
+@app.get("/admin/activate-pro")
+def admin_activate_pro(email: str, key: str):
+    """
+    Ruta para activar licencias PRO manualmente tras recibir transferencias,
+    PayPal o pagos en efectivo.
+    Ejemplo de uso: /admin/activate-pro?email=cliente@gmail.com&key=mi_clave_secreta_admin_123
+    """
+    if key != ADMIN_SECRET_KEY:
+        raise HTTPException(status_code=403, detail="Acceso denegado: Clave de administrador inválida.")
     
-    if logo and logo.filename:
-        ext = os.path.splitext(logo.filename)[1].lower()
-        if ext not in [".png", ".jpg", ".jpeg", ".webp"]:
-            return RedirectResponse(url="/settings?error=formato_invalido", status_code=303)
-
-        content = await logo.read()
-        if len(content) > MAX_FILE_SIZE:
-            return RedirectResponse(url="/settings?error=tamano_excedido", status_code=303)
-
-        random_name = f"logo_{user['id']}_{secrets.token_hex(8)}{ext}"
-        file_location = os.path.join(UPLOAD_DIR, random_name)
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.email == email.lower().strip()).first()
+        if not user:
+            return {"status": "error", "message": f"Usuario con email '{email}' no encontrado."}
         
-        with open(file_location, "wb") as buffer:
-            buffer.write(content)
-            
-        if user.get("company_logo"):
-            old_logo_rel = user["company_logo"].lstrip("/")
-            if os.path.exists(old_logo_rel):
-                try:
-                    os.remove(old_logo_rel)
-                except OSError:
-                    pass
+        user.plan = "pro"
+        db.commit()
+        return {
+            "status": "success",
+            "message": f"¡Éxito! El usuario '{user.email}' (ID: {user.id}) ha sido actualizado al Plan PRO."
+        }
+    finally:
+        db.close()
 
-        logo_path = f"/static/uploads/{random_name}"
 
-    update_user_profile(
-        user_id=user["id"],
-        company_name=company_name.strip(),
-        company_phone=company_phone.strip(),
-        company_address=company_address.strip(),
-        company_logo=logo_path
-    )
+# --- RUTAS DE PLANES Y SUSCRIPCIÓN ---
 
-    return RedirectResponse(url="/settings?saved=true", status_code=303)
+@app.get("/upgrade", response_class=HTMLResponse)
+def show_upgrade(request: Request, reason: str = ""):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
 
-# --- CREACIÓN Y EDICIÓN ---
+    quote_count = count_user_quotes(user["id"])
+    return render_with_csrf(request, "upgrade.html", {
+        "user": user,
+        "quote_count": quote_count,
+        "free_limit": FREE_QUOTE_LIMIT,
+        "reason": reason
+    })
+
+
+# --- RUTAS PRINCIPALES DEL SISTEMA ---
+
 @app.get("/", response_class=HTMLResponse)
-def index(request: Request):
+def show_index(request: Request):
     user = get_current_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
     
     quote_count = count_user_quotes(user["id"])
-    limit_reached = (user["plan"] == "free" and quote_count >= FREE_QUOTE_LIMIT)
-    
+    if user["plan"] == "free" and quote_count >= FREE_QUOTE_LIMIT:
+        return RedirectResponse(url="/upgrade?reason=limit", status_code=303)
+
     return render_with_csrf(request, "index.html", {
         "user": user,
         "quote_count": quote_count,
-        "free_limit": FREE_QUOTE_LIMIT,
-        "limit_reached": limit_reached
+        "free_limit": FREE_QUOTE_LIMIT
     })
+
 
 @app.post("/create")
 def create_quote(
@@ -233,18 +215,17 @@ def create_quote(
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
+    quote_count = count_user_quotes(user["id"])
+    if user["plan"] == "free" and quote_count >= FREE_QUOTE_LIMIT:
+        return RedirectResponse(url="/upgrade?reason=limit", status_code=303)
+
     if amount <= 0 or tax_rate < 0 or tax_rate > 100:
         return render_with_csrf(request, "index.html", {
             "user": user,
             "error": "Monto debe ser mayor a 0 e impuesto entre 0% y 100%",
-            "quote_count": count_user_quotes(user["id"]),
-            "free_limit": FREE_QUOTE_LIMIT,
-            "limit_reached": False
-        })
-
-    quote_count = count_user_quotes(user["id"])
-    if user["plan"] == "free" and quote_count >= FREE_QUOTE_LIMIT:
-        return RedirectResponse(url="/upgrade?reason=limit", status_code=303)
+            "quote_count": quote_count,
+            "free_limit": FREE_QUOTE_LIMIT
+        }, status_code=400)
 
     quote_id = save_quote(
         user_id=user["id"],
@@ -257,72 +238,88 @@ def create_quote(
     )
     return RedirectResponse(url=f"/quote/{quote_id}", status_code=303)
 
-# --- STRIPE & SUSCRIPCIONES ---
-@app.get("/upgrade", response_class=HTMLResponse)
-def show_upgrade(request: Request, reason: str = ""):
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def show_dashboard(request: Request, status: str = "", search: str = ""):
     user = get_current_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
+    quotes = get_filtered_quotes(user["id"], status_filter=status, search_query=search)
+    stats = get_dashboard_stats(user["id"])
     quote_count = count_user_quotes(user["id"])
-    return render_with_csrf(request, "upgrade.html", {
+
+    return render_with_csrf(request, "dashboard.html", {
         "user": user,
+        "quotes": quotes,
+        "stats": stats,
         "quote_count": quote_count,
         "free_limit": FREE_QUOTE_LIMIT,
-        "reason": reason
+        "current_status": status,
+        "current_search": search
     })
 
-@app.post("/subscription/checkout")
-def create_checkout_session(request: Request, csrf_token: str = Form(...)):
+
+@app.get("/settings", response_class=HTMLResponse)
+def show_settings(request: Request, saved: bool = False, error: str = ""):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    return render_with_csrf(request, "settings.html", {
+        "user": user,
+        "saved": saved,
+        "error": error
+    })
+
+
+@app.post("/settings")
+async def process_settings(
+    request: Request,
+    csrf_token: str = Form(...),
+    company_name: str = Form(""),
+    company_phone: str = Form(""),
+    company_address: str = Form(""),
+    logo: UploadFile = File(None)
+):
     verify_csrf(request, csrf_token)
     user = get_current_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
-    try:
-        checkout_session = stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            mode='subscription',
-            customer_email=user["email"],
-            line_items=[{
-                'price': STRIPE_PRICE_ID,
-                'quantity': 1,
-            }],
-            success_url=f"{BASE_URL}/dashboard?upgraded=true",
-            cancel_url=f"{BASE_URL}/upgrade?cancelled=true",
-            client_reference_id=str(user["id"])
-        )
-        return RedirectResponse(url=checkout_session.url, status_code=303)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error iniciando pago: {str(e)}")
+    logo_url = user.get("company_logo")
 
-@app.post("/webhook/stripe")
-async def stripe_webhook(request: Request):
-    payload = await request.body()
-    sig_header = request.headers.get("stripe-signature")
+    # Procesar subida del logo si se incluye un archivo
+    if logo and logo.filename:
+        allowed_types = ["image/png", "image/jpeg", "image/webp"]
+        if logo.content_type not in allowed_types:
+            return RedirectResponse(url="/settings?error=formato_invalido", status_code=303)
+        
+        contents = await logo.read()
+        if len(contents) > 2 * 1024 * 1024:  # Máximo 2MB
+            return RedirectResponse(url="/settings?error=tamano_excedido", status_code=303)
 
-    try:
-        event = stripe.Webhook.construct_event(
-            payload, sig_header, STRIPE_WEBHOOK_SECRET
-        )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error Webhook: {str(e)}")
+        os.makedirs("static/uploads", exist_ok=True)
+        file_ext = logo.filename.split(".")[-1]
+        file_path = f"static/uploads/logo_user_{user['id']}.{file_ext}"
 
-    # Pago completado -> Activar Plan Pro
-    if event['type'] == 'checkout.session.completed':
-        session = event['data']['object']
-        user_id = session.get('client_reference_id')
-        if user_id:
-            update_user_plan(int(user_id), "pro")
+        with open(file_path, "wb") as f:
+            f.write(contents)
 
-    # Cancelación de suscripción -> Volver a Plan Free
-    elif event['type'] == 'customer.subscription.deleted':
-        session = event['data']['object']
-        user_id = session.get('client_reference_id')
-        if user_id:
-            update_user_plan(int(user_id), "free")
+        logo_url = f"/{file_path}"
 
-    return {"status": "success"}
+    update_user_profile(
+        user_id=user["id"],
+        company_name=company_name.strip(),
+        company_phone=company_phone.strip(),
+        company_address=company_address.strip(),
+        company_logo=logo_url
+    )
+
+    return RedirectResponse(url="/settings?saved=true", status_code=303)
+
+
+# --- GESTIÓN DE COTIZACIONES (VER, EDITAR, ELIMINAR, ESTADO, PDF) ---
 
 @app.get("/quote/{quote_id}", response_class=HTMLResponse)
 def show_quote(request: Request, quote_id: int):
@@ -332,7 +329,7 @@ def show_quote(request: Request, quote_id: int):
 
     quote = get_quote_by_id(quote_id, user_id=user["id"])
     if not quote:
-        return HTMLResponse(content="Cotización no encontrada", status_code=404)
+        return HTMLResponse(content="<h1>404 - Cotización no encontrada</h1>", status_code=404)
     
     base_url = str(request.base_url).rstrip("/")
     token_val = quote.get("token") or quote.get("public_token", "")
@@ -344,6 +341,7 @@ def show_quote(request: Request, quote_id: int):
         "share_url": share_url
     })
 
+
 @app.get("/quote/{quote_id}/edit", response_class=HTMLResponse)
 def show_edit_form(request: Request, quote_id: int):
     user = get_current_user(request)
@@ -352,8 +350,10 @@ def show_edit_form(request: Request, quote_id: int):
 
     quote = get_quote_by_id(quote_id, user_id=user["id"])
     if not quote:
-        return HTMLResponse(content="Cotización no encontrada", status_code=404)
+        return HTMLResponse(content="<h1>404 - Cotización no encontrada</h1>", status_code=404)
+        
     return render_with_csrf(request, "edit.html", {"quote": quote, "user": user})
+
 
 @app.post("/quote/{quote_id}/edit")
 def process_edit_quote(
@@ -374,7 +374,11 @@ def process_edit_quote(
 
     if amount <= 0 or tax_rate < 0 or tax_rate > 100:
         quote = get_quote_by_id(quote_id, user_id=user["id"])
-        return render_with_csrf(request, "edit.html", {"quote": quote, "user": user, "error": "Monto debe ser mayor a 0 e impuesto válido"})
+        return render_with_csrf(request, "edit.html", {
+            "quote": quote,
+            "user": user,
+            "error": "Monto debe ser mayor a 0 e impuesto entre 0% y 100%"
+        }, status_code=400)
 
     update_quote(
         quote_id=quote_id,
@@ -388,6 +392,7 @@ def process_edit_quote(
     )
     return RedirectResponse(url=f"/quote/{quote_id}", status_code=303)
 
+
 @app.post("/quote/{quote_id}/delete")
 def process_delete_quote(request: Request, quote_id: int, csrf_token: str = Form(...)):
     verify_csrf(request, csrf_token)
@@ -398,26 +403,6 @@ def process_delete_quote(request: Request, quote_id: int, csrf_token: str = Form
     delete_quote(quote_id=quote_id, user_id=user["id"])
     return RedirectResponse(url="/dashboard", status_code=303)
 
-@app.get("/dashboard", response_class=HTMLResponse)
-def show_dashboard(request: Request, q: str = "", status: str = "Todos", upgraded: bool = False):
-    user = get_current_user(request)
-    if not user:
-        return RedirectResponse(url="/login", status_code=303)
-
-    quotes = get_filtered_quotes(user_id=user["id"], search=q.strip(), status_filter=status)
-    stats = get_dashboard_stats(user_id=user["id"])
-    quote_count = count_user_quotes(user["id"])
-
-    return render_with_csrf(request, "dashboard.html", {
-        "quotes": quotes,
-        "stats": stats,
-        "q": q,
-        "current_status": status,
-        "user": user,
-        "quote_count": quote_count,
-        "free_limit": FREE_QUOTE_LIMIT,
-        "upgraded": upgraded
-    })
 
 @app.post("/update-status/{quote_id}")
 def change_status(request: Request, quote_id: int, csrf_token: str = Form(...), status: str = Form(...)):
@@ -429,6 +414,7 @@ def change_status(request: Request, quote_id: int, csrf_token: str = Form(...), 
     update_quote_status(quote_id, user["id"], status)
     return RedirectResponse(url="/dashboard", status_code=303)
 
+
 @app.get("/quote/{quote_id}/pdf")
 def download_pdf(request: Request, quote_id: int):
     user = get_current_user(request)
@@ -437,10 +423,11 @@ def download_pdf(request: Request, quote_id: int):
 
     quote = get_quote_by_id(quote_id, user_id=user["id"])
     if not quote:
-        return HTMLResponse(content="Cotización no encontrada", status_code=404)
+        return HTMLResponse(content="<h1>404 - Cotización no encontrada</h1>", status_code=404)
 
     pdf_bytes = generate_pdf_bytes(quote, user=user)
-    filename = f"Cotizacion_{quote['id']:03d}_{quote['client_name'].replace(' ', '_')}.pdf"
+    clean_client_name = quote['client_name'].replace(' ', '_')
+    filename = f"Cotizacion_{quote['id']:03d}_{clean_client_name}.pdf"
 
     return Response(
         content=pdf_bytes,
@@ -448,11 +435,14 @@ def download_pdf(request: Request, quote_id: int):
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
-# --- PORTAL PÚBLICO ---
+
+# --- PORTAL PÚBLICO (VISTA Y RESPUESTA DEL CLIENTE) ---
+
 @app.get("/q")
 @app.get("/q/")
 def redirect_public_root():
     return RedirectResponse(url="/", status_code=303)
+
 
 @app.get("/q/{token}", response_class=HTMLResponse)
 def show_public_quote(request: Request, token: str):
@@ -467,12 +457,13 @@ def show_public_quote(request: Request, token: str):
         "token": token
     })
 
+
 @app.post("/q/{token}/respond")
 def respond_public_quote(request: Request, token: str, csrf_token: str = Form(...), action: str = Form(...)):
     verify_csrf(request, csrf_token)
     quote = get_quote_by_token(token)
     if not quote:
-        return HTMLResponse(content="Presupuesto no encontrado", status_code=404)
+        return HTMLResponse(content="<h1>404 - Presupuesto no encontrado</h1>", status_code=404)
     
     if action == "approve":
         update_quote_status_by_token(token, "Aprobado")
