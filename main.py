@@ -19,7 +19,6 @@ from database import (
     update_user_profile,
     count_user_quotes,
     update_user_plan,
-    count_pro_users,
     save_quote,
     update_quote,
     delete_quote,
