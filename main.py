@@ -74,9 +74,13 @@ def get_current_user(request: Request):
 def render_with_csrf(request: Request, template_name: str, context: dict = None, status_code: int = 200):
     if context is None:
         context = {}
-    context["request"] = request
     context["csrf_token"] = get_csrf_token(request)
-    return templates.TemplateResponse(template_name, context, status_code=status_code)
+    return templates.TemplateResponse(
+        request=request, 
+        name=template_name, 
+        context=context, 
+        status_code=status_code
+    )
 
 
 # --- RUTAS DE AUTENTICACIÓN ---
@@ -138,11 +142,6 @@ def process_logout(request: Request, csrf_token: str = Form(...)):
 
 @app.get("/admin/activate-pro")
 def admin_activate_pro(email: str, key: str):
-    """
-    Ruta para activar licencias PRO manualmente tras recibir transferencias,
-    PayPal o pagos en efectivo.
-    Ejemplo de uso: /admin/activate-pro?email=cliente@gmail.com&key=mi_clave_secreta_admin_123
-    """
     if key != ADMIN_SECRET_KEY:
         raise HTTPException(status_code=403, detail="Acceso denegado: Clave de administrador inválida.")
     
@@ -244,7 +243,7 @@ def show_dashboard(request: Request, status: str = "", search: str = ""):
     if not user:
         return RedirectResponse(url="/login", status_code=303)
 
-    quotes = get_filtered_quotes(user["id"], status_filter=status, search_query=search)
+    quotes = get_filtered_quotes(user_id=user["id"], search=search.strip(), status_filter=status)
     stats = get_dashboard_stats(user["id"])
     quote_count = count_user_quotes(user["id"])
 
@@ -288,14 +287,13 @@ async def process_settings(
 
     logo_url = user.get("company_logo")
 
-    # Procesar subida del logo si se incluye un archivo
     if logo and logo.filename:
         allowed_types = ["image/png", "image/jpeg", "image/webp"]
         if logo.content_type not in allowed_types:
             return RedirectResponse(url="/settings?error=formato_invalido", status_code=303)
         
         contents = await logo.read()
-        if len(contents) > 2 * 1024 * 1024:  # Máximo 2MB
+        if len(contents) > 2 * 1024 * 1024:
             return RedirectResponse(url="/settings?error=tamano_excedido", status_code=303)
 
         os.makedirs("static/uploads", exist_ok=True)
@@ -318,7 +316,7 @@ async def process_settings(
     return RedirectResponse(url="/settings?saved=true", status_code=303)
 
 
-# --- GESTIÓN DE COTIZACIONES (VER, EDITAR, ELIMINAR, ESTADO, PDF) ---
+# --- GESTIÓN DE COTIZACIONES ---
 
 @app.get("/quote/{quote_id}", response_class=HTMLResponse)
 def show_quote(request: Request, quote_id: int):
@@ -435,7 +433,7 @@ def download_pdf(request: Request, quote_id: int):
     )
 
 
-# --- PORTAL PÚBLICO (VISTA Y RESPUESTA DEL CLIENTE) ---
+# --- PORTAL PÚBLICO ---
 
 @app.get("/q")
 @app.get("/q/")
